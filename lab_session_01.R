@@ -47,7 +47,7 @@ ap <- function(){
 ap()
 
 
-CBE <- read.csv("cbe.dat", header=TRUE)
+CBE <- read.csv("datasets/cbe.dat", header=TRUE)
 print(paste("CBE is a ", class(CBE)))
 head(CBE)
 ELEC <- ts(CBE[, 3], start=1958, freq=12)
@@ -70,7 +70,7 @@ lines(ELEC_trend * ELEC_seasonal)
 
 # ACF
 
-viscosity <- read.csv("viscosity.csv", header=FALSE)[, 2]
+viscosity <- read.csv("datasets/viscosity.csv", header=FALSE)[, 2]
 print(viscosity)
 plot(viscosity)
 acf(viscosity)
@@ -100,7 +100,3 @@ ggplot(variogram_prodution, aes(x=Lag, y=vario))+
                                 hjust=0.5),
         axis.title=element_text(size=rel(1.5)),
         legend.position="bottom")
-
-
-# Power transformations
-
