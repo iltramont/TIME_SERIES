@@ -4,6 +4,7 @@ patsat_data <- read.csv("datasets/dataset_Patient_Satisfaction_Survey_Data.csv",
                         fileEncoding="UTF-8-BOM")
 print(patsat_data)
 nrows <- dim(patsat_data)[1]
+print(nrows)
 
 # Prepare X matrix
 X <- data.matrix(cbind(matrix(1, nrows, 1), patsat_data[, 1:2]))

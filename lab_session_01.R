@@ -28,6 +28,7 @@ prelim_2 <- function(){
 }
 prelim_2()
 
+
 ap <- function(){
   data(AirPassengers)
   AP <- AirPassengers
@@ -37,10 +38,8 @@ ap <- function(){
   print(start(AP))
   print(end(AP))
   print(frequency(AP))
-  
   plot(AP, ylab="Passengers (1000's)")
-  
-  layout(1:2)
+  #layout(2:1)
   plot(aggregate(AP))
   boxplot(AP ~ cycle(AP))
 }
