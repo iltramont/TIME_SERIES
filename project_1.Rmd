@@ -1,0 +1,89 @@
+---
+title: "Hungarian Chickenpox Analysis"
+output: html_notebook
+---
+
+In this notebook there will be an analysis of Hungarian weekly chickenpox cases. First, let's have a look at the data.
+
+```{r}
+# Load data
+data = read.csv('hungary_chickenpox.csv')
+print(class(data))
+```
+```{r}
+print(data)
+```
+Is possible to see how the dataset contains 522 rows (weeks) and 21 columns (1 for the date and 20 cities).
+Now we must convert the first column in the proper format and transform the dataset in a timeseries.
+```{r}
+data$Date <- as.Date(data$Date, format='%d/%m/%Y')
+print(str(data))
+```
+```{r}
+library(zoo)
+zoo_data <- zoo(data[2:ncol(data)], order.by=data$Date)
+print(str(zoo_data))
+```
+```{r}
+plot.zoo(zoo_data, plot.type='multiple', nc=2,
+         main='Hungarian Chickenpox Weekly Cases', yax.flip = TRUE)
+```
+A seasonal behavior is clear in every city. It seems also that the peaks coincide.Let's check.
+
+```{r}
+library(RColorBrewer)
+colors <- c(brewer.pal(n=12, name='Set3'), brewer.pal(n=8, name='Dark2'))
+plot.zoo(zoo_data, plot.type = 'single',
+         main='Hungarian Chickenpox Weekly Cases', col = colors,
+         ylab = 'Weekly cases')
+```
+For a better comparison, let's scale the data in order to eliminate differences in population.
+```{r}
+min_max_scaler <- function(x){
+  (x - min(x)) / (max(x) - min(x))
+}
+data_scaled <- as.data.frame(lapply(data[, -1], min_max_scaler))
+zoo_scaled <- zoo(x = data_scaled, order.by=data$Date)
+plot.zoo(zoo_scaled, plot.type='single',
+         main='Hungarian Chickenpox Weekly Cases SCALED', col=colors)
+```
+Let's now compute the correlation matrix.
+```{r}
+corr_matrix <- cor(zoo_data, method = 'pearson')
+library(corrplot)
+corrplot(corr_matrix, method = 'square', type='full', addCoef.col = 'black',
+         number.cex = 0.5, diag = FALSE, number.digits = 1, tl.cex=0.5, tl.col = 'black')
+print(min(corr_matrix))
+```
+As expected, the correlation is very high between all the cities (always higher than 0.25).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
