@@ -57,7 +57,57 @@ print(min(corr_matrix))
 ```
 As expected, the correlation is very high between all the cities (always higher than 0.25).
 
+Now, Let's focus on the country aggregate.
+```{r}
+total_cases <- rowSums(data[, -1])
+total_cases <- ts(total_cases, frequency = 52, start = c(2005, 01, 03))
+plot.zoo(total_cases, main = 'Hungarian Total Chickenpox Cases',
+         ylab = 'Count', xlab = 'Date')
+```
+It is clear a seasonal pattern (more cases in cold months?) and is also possible to notice that peaks' height is decreasing. Let's now decompose the series.
+```{r}
+cases_decompose <- decompose(total_cases)
+plot(cases_decompose)
+```
+The downward trend is clear. Is remarkable that the random component is lower when cases are low. This suggest to use the multiplicative decomposition.
+```{r}
+cases_decompose <- decompose(total_cases, type = 'multiplicative')
+plot(cases_decompose)
+```
+With the multiplicative approach, the volatility of the random component is more constant.
+# AUtocorrelation
+```{r}
+par(mar = c(5, 4, 6, 2))
+plot(acf(total_zoo, lag.max = 52, plot = FALSE),
+     main = 'Total Caes Autocorrelation', xlab = 'Lag (days)')
+```
 
+
+```{r}
+library(ggplot2)
+myvariogram <- function(x, lag){
+  Lag <- NULL
+  vark <- NULL
+  vario <- NULL
+  for (k in 1: lag){
+    Lag[k] <- k
+    vark[k] <- sd(diff(x, k))^2
+    vario[k] <- vark[k] / vark[1]
+  }
+  return (as.data.frame(cbind(Lag, vario)))
+}
+  
+variogram_cases <- myvariogram(total_zoo, length(total_zoo)/4)
+ggplot(variogram_cases, aes(x=Lag, y=vario))+
+  geom_col()+
+  labs(x="Lag", y="Variogram", title="Variogram Of Total Cases")+
+  theme_classic()+
+  theme(plot.title=element_text(size=rel(1.5),
+                                face="bold",
+                                hjust=0.5),
+        axis.title=element_text(size=rel(1.5)),
+        legend.position="bottom")
+```
 
 
 
