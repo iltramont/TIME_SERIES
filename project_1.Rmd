@@ -5,6 +5,8 @@ output: html_notebook
 
 In this notebook there will be an analysis of Hungarian weekly chickenpox cases. First, let's have a look at the data.
 
+# EDA
+
 ```{r}
 # Load data
 data = read.csv('hungary_chickenpox.csv')
@@ -22,29 +24,21 @@ print(str(data))
 ```{r}
 library(zoo)
 zoo_data <- zoo(data[2:ncol(data)], order.by=data$Date)
-print(str(zoo_data))
-```
-```{r}
-plot.zoo(zoo_data, plot.type='multiple', nc=2,
+#print(str(zoo_data))
+plot.zoo(zoo_data, plot.type='multiple', nc=2, xlab = 'Date',
          main='Hungarian Chickenpox Weekly Cases', yax.flip = TRUE)
 ```
-A seasonal behavior is clear in every city. It seems also that the peaks coincide.Let's check.
+A seasonal behavior is clear in every city. It seems also that the peaks coincide.Let's check. For a better comparison, let's scale the data in order to eliminate differences in population between cities.
 
 ```{r}
 library(RColorBrewer)
 colors <- c(brewer.pal(n=12, name='Set3'), brewer.pal(n=8, name='Dark2'))
-plot.zoo(zoo_data, plot.type = 'single',
-         main='Hungarian Chickenpox Weekly Cases', col = colors,
-         ylab = 'Weekly cases')
-```
-For a better comparison, let's scale the data in order to eliminate differences in population.
-```{r}
 min_max_scaler <- function(x){
   (x - min(x)) / (max(x) - min(x))
 }
 data_scaled <- as.data.frame(lapply(data[, -1], min_max_scaler))
 zoo_scaled <- zoo(x = data_scaled, order.by=data$Date)
-plot.zoo(zoo_scaled, plot.type='single',
+plot.zoo(zoo_scaled, plot.type='single', xlab = 'Date',
          main='Hungarian Chickenpox Weekly Cases SCALED', col=colors)
 ```
 Let's now compute the correlation matrix.
@@ -53,62 +47,59 @@ corr_matrix <- cor(zoo_data, method = 'pearson')
 library(corrplot)
 corrplot(corr_matrix, method = 'square', type='full', addCoef.col = 'black',
          number.cex = 0.5, diag = FALSE, number.digits = 1, tl.cex=0.5, tl.col = 'black')
-print(min(corr_matrix))
+print(paste('Minimum correlation value is:', min(corr_matrix)))
 ```
 As expected, the correlation is very high between all the cities (always higher than 0.25).
 
 Now, Let's focus on the country aggregate.
 ```{r}
 total_cases <- rowSums(data[, -1])
-total_cases <- ts(total_cases, frequency = 52, start = c(2005, 01, 03))
-plot.zoo(total_cases, main = 'Hungarian Total Chickenpox Cases',
+total_cases <- zoo(total_cases, order.by = data$Date)
+plot.zoo(total_cases, main = 'Hungarian Chickenpox Cases (Reported)',
          ylab = 'Count', xlab = 'Date')
 ```
-It is clear a seasonal pattern (more cases in cold months?) and is also possible to notice that peaks' height is decreasing. Let's now decompose the series.
+It is clear a seasonal pattern (more cases in cold months?) and is also possible to notice that peaks' height is decreasing. To reduce oscillations, a monthly aggregation is now performed. There will be used a "sum" aggregation function as datasets refers to reported cases and not active cases.
 ```{r}
-cases_decompose <- decompose(total_cases)
-plot(cases_decompose)
+monthly_data <- aggregate(zoo_data, as.yearmon, sum)
+monthly_total <- aggregate(total_cases, as.yearmon, sum)
+total_ts <- ts(monthly_total, start = c(2005, 1), freq=12)
+print(total_ts)
+plot(monthly_data, yax.flip = TRUE, main = 'Monthly Reported Cases', xlab = 'Date')
+plot(monthly_total, main = 'Monthly Reported Cases', ylab = '', xlab = 'Date')
+boxplot(total_ts ~ cycle(total_ts), xlab = 'Months', ylab = 'Cases',
+        main='Monthly Cases Distribution')
 ```
-The downward trend is clear. Is remarkable that the random component is lower when cases are low. This suggest to use the multiplicative decomposition.
+As expected, the number of reported cases is higher in cold month that are also months in which schools are open and virus can spread easily.
+
+# Decomposition
+
+First, we will try with the additive method.
 ```{r}
-cases_decompose <- decompose(total_cases, type = 'multiplicative')
+cases_decompose <- decompose(total_ts)
 plot(cases_decompose)
-```
-With the multiplicative approach, the volatility of the random component is more constant.
-# AUtocorrelation
-```{r}
 par(mar = c(5, 4, 6, 2))
-plot(acf(total_zoo, lag.max = 52, plot = FALSE),
-     main = 'Total Caes Autocorrelation', xlab = 'Lag (days)')
+plot(acf(c(cases_decompose$random), na.action = na.pass, plot = FALSE),
+     main = 'Residuals ACF (Additive)')
 ```
-
-
+The downward trend is clear. Is remarkable that the random component's volatility is lower when cases are low; this suggest to use the multiplicative decomposition. We see also a significant autocorrelation when the lag is 4 and 5.
 ```{r}
-library(ggplot2)
-myvariogram <- function(x, lag){
-  Lag <- NULL
-  vark <- NULL
-  vario <- NULL
-  for (k in 1: lag){
-    Lag[k] <- k
-    vark[k] <- sd(diff(x, k))^2
-    vario[k] <- vark[k] / vark[1]
-  }
-  return (as.data.frame(cbind(Lag, vario)))
-}
-  
-variogram_cases <- myvariogram(total_zoo, length(total_zoo)/4)
-ggplot(variogram_cases, aes(x=Lag, y=vario))+
-  geom_col()+
-  labs(x="Lag", y="Variogram", title="Variogram Of Total Cases")+
-  theme_classic()+
-  theme(plot.title=element_text(size=rel(1.5),
-                                face="bold",
-                                hjust=0.5),
-        axis.title=element_text(size=rel(1.5)),
-        legend.position="bottom")
+cases_decompose <- decompose(total_ts, type = 'multiplicative')
+plot(cases_decompose)
+par(mar = c(5, 4, 6, 2))
+plot(acf(c(cases_decompose$random), na.action = na.pass, plot = FALSE),
+     main = 'Residuals ACF (Multiplicative)')
 ```
+With the multiplicative approach, the volatility of the random component is more constant and the autocorrelation in the random component is less significant (but we still have a significant autocorrelation with lag = 4).
 
+# Forecasting
+
+# Model Evaluation
+
+# Time Frequency Analysis
+
+# ARCH / GARCH
+
+# VAR
 
 
 
