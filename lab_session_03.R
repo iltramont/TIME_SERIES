@@ -34,3 +34,8 @@ print(y_hat)
 # Residuals
 epsilon <- y - y_hat
 hist(epsilon, main="Histogram of residuals")
+
+
+# We could have obtained the same results with the following built-in formula:
+model <- lm(satisfaction ~ age + severity, data = patsat_data)
+summary(model)

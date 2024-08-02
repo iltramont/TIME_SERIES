@@ -60,14 +60,14 @@ motor<-function(){
   
   
   # Invoke Holt-Winters funtion
-  Comp.hw1 <- HoltWinters( complaints, beta = FALSE, gamma = FALSE) 
+  Comp.hw1 <- HoltWinters(complaints, beta = FALSE, gamma = FALSE) 
   
   # Note that this function returns an object
   # that can be of course plotted
   plot(Comp.hw1)
   print(Comp.hw1)
   
-  # From the Holt-Winters, print the SSe variable
+  # From the Holt-Winters, print the SSE variable
   print(Comp.hw1$SSE)
   
   # The estimated value of the mean number of letters of complaint per month
