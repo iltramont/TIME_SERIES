@@ -95,12 +95,19 @@ With the multiplicative approach, the volatility of the random component is more
 ## Holt-Winters Forecast
 ```{r}
 library(forecast)
-hw_model <- hw(monthly_total, seasonal='multiplicative')
-forecast_values <- forecast(hw_model, h=24)
+hw_monthly_mul <- hw(monthly_total, seasonal='multiplicative')
+hw_monthly_add <- hw(monthly_total, seasonal='additive')
+ssr_mul <- sum((hw_monthly_mul$fitted - hw_monthly_mul$x)^2)
+ssr_add <- sum((hw_monthly_add$fitted - hw_monthly_add$x)^2)
+print(paste('SSR multiplicative: ', ssr_mul))
+print(paste('SSR additive: ', ssr_add))
+forecast_values <- forecast(hw_monthly_mul, h=24)  # 24 months forecast horizon
 plot(forecast_values)
+lines(hw_monthly_mul$fitted, col='blue')
+legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black', 'blue', 'cyan'), lwd = 2, cex = 0.7)
+print(paste('Root mean squared error on fitted values: ', sqrt(ssr_mul / length(hw_monthly_mul$residuals))))
 ```
-
-
+## ARIMA Forecast
 
 # Model Evaluation
 
