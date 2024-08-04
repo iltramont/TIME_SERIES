@@ -108,6 +108,16 @@ legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black'
 print(paste('Root mean squared error on fitted values: ', sqrt(ssr_mul / length(hw_monthly_mul$residuals))))
 ```
 ## ARIMA Forecast
+```{r}
+original <- total_ts
+arima_model <- auto.arima(original)
+print(arima_model)
+arima_forecast <- forecast(arima_model, h=24)
+plot(arima_forecast, main = 'Monthly Reported Cases ARIMA')
+points(arima_forecast$fitted, col='blue', type='l', lty=2)
+legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black', 'blue', 'cyan'), lwd = 2, cex = 0.7)
+```
+#TODO: plot arima and HW predictions in the same graph
 
 # Model Evaluation
 
