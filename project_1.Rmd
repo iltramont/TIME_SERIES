@@ -10,7 +10,7 @@ In this notebook there will be an analysis of Hungarian weekly chickenpox cases.
 ```{r}
 # Load data
 data = read.csv('hungary_chickenpox.csv')
-print(class(data))
+print(paste('data is a', class(data)))
 ```
 ```{r}
 print(data)
@@ -31,8 +31,10 @@ plot.zoo(zoo_data, plot.type='multiple', nc=2, xlab = 'Date',
 A seasonal behavior is clear in every city. It seems also that the peaks coincide.Let's check. For a better comparison, let's scale the data in order to eliminate differences in population between cities.
 
 ```{r}
+# To have 20 different colors
 library(RColorBrewer)
 colors <- c(brewer.pal(n=12, name='Set3'), brewer.pal(n=8, name='Dark2'))
+# Create a function to scale each column between 0 and 1
 min_max_scaler <- function(x){
   (x - min(x)) / (max(x) - min(x))
 }
@@ -95,29 +97,81 @@ With the multiplicative approach, the volatility of the random component is more
 ## Holt-Winters Forecast
 ```{r}
 library(forecast)
+# Fit additive and multiplicative models
 hw_monthly_mul <- hw(monthly_total, seasonal='multiplicative')
 hw_monthly_add <- hw(monthly_total, seasonal='additive')
+# Compute sum of squared residuals
 ssr_mul <- sum((hw_monthly_mul$fitted - hw_monthly_mul$x)^2)
 ssr_add <- sum((hw_monthly_add$fitted - hw_monthly_add$x)^2)
 print(paste('SSR multiplicative: ', ssr_mul))
 print(paste('SSR additive: ', ssr_add))
-forecast_values <- forecast(hw_monthly_mul, h=24)  # 24 months forecast horizon
-plot(forecast_values)
+# Keep the best model according to SSR (multiplicative model)
+# Compute 24 months forecast horizon
+forecast_hw <- forecast(hw_monthly_mul, h=24)
+plot(forecast_hw)
 lines(hw_monthly_mul$fitted, col='blue')
 legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black', 'blue', 'cyan'), lwd = 2, cex = 0.7)
 print(paste('Root mean squared error on fitted values: ', sqrt(ssr_mul / length(hw_monthly_mul$residuals))))
 ```
 ## ARIMA Forecast
 ```{r}
-original <- total_ts
-arima_model <- auto.arima(original)
+# Use auto.arima function
+arima_model <- auto.arima(total_ts)
+# Compute sum of squared residuals
+ssr_arima <- sum((arima_model$fitted - arima_model$x)^2)
+print(paste('SSR arima: ', ssr_arima))
+print(paste('Root mean squared error on fitted values: ', sqrt(ssr_arima / length(arima_model$residuals))))
+
 print(arima_model)
-arima_forecast <- forecast(arima_model, h=24)
-plot(arima_forecast, main = 'Monthly Reported Cases ARIMA')
-points(arima_forecast$fitted, col='blue', type='l', lty=2)
+forecast_arima <- forecast(arima_model, h=24)
+plot(forecast_arima, main = 'Monthly Reported Cases ARIMA')
+points(forecast_arima$fitted, col='blue', type='l', lty=2)
 legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black', 'blue', 'cyan'), lwd = 2, cex = 0.7)
 ```
-#TODO: plot arima and HW predictions in the same graph
+# Plot arima and HW predictions in the same graph
+```{r}
+fitted_df <- cbind(total_ts, hw_monthly_mul$fitted, arima_model$fitted)
+colnames(fitted_df) <- c('Original', 'HW_fitted', 'ARIMA_fitted')
+plot(fitted_df, plot.type = 'single', col = c('black', 'blue', 'red'))
+legend('topright', legend = c('Original', 'HW_fitted', 'ARIMA_fitted'), col = c('black', 'blue', 'red'), lwd = 2, cex = 0.7)
+```
+```{r}
+# Create functions to compute metrics
+mse <- function(y_true, y_pred){
+  return(mean((y_pred - y_true)^2))
+}
+me <- function(y_true, y_pred){
+  return(mean(y_pred - y_true))
+}
+mad <- function(y_true, y_pred){
+  return(mean(abs(y_pred - y_true)))
+}
+rmse <- function(y_true, y_pred){
+  return(sqrt(mean((y_pred - y_true)^2)))
+}
+mape <- function(y_true, y_pred){
+  return(mean(abs((y_pred - y_true) / y_true)))
+}
+
+mpe <- function(y_true, y_pred){
+  return(mean((y_pred - y_true) / y_true))
+}
+
+compute_metrics <- function(x, y){
+  return(c(mse(x, y), me(x, y), mad(x, y), rmse(x, y), mape(x, y), mpe(x, y)))
+}
+hw_mul_metrics <- compute_metrics(total_ts, hw_monthly_mul$fitted)
+hw_add_metrics <- compute_metrics(total_ts, hw_monthly_add$fitted)
+arima_metrics <- compute_metrics(total_ts, arima_model$fitted)
+metric_name <- c('MSE', 'ME', 'MAD', 'RMSE', 'MAPE', 'MPE')
+
+metrics_df <- as.data.frame(cbind(hw_mul_metrics, hw_add_metrics, arima_metrics))
+metrics_df <- format(round(metrics_df, 2), scientific=FALSE)
+row.names(metrics_df) <- metric_name
+print(metrics_df)
+```
+
+
 
 # Model Evaluation
 
