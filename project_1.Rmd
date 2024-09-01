@@ -135,6 +135,21 @@ colnames(fitted_df) <- c('Original', 'HW_fitted', 'ARIMA_fitted')
 plot(fitted_df, plot.type = 'single', col = c('black', 'blue', 'red'))
 legend('topright', legend = c('Original', 'HW_fitted', 'ARIMA_fitted'), col = c('black', 'blue', 'red'), lwd = 2, cex = 0.7)
 ```
+# Plot forecasts in the same plot
+```{r}
+forecast_df <- matrix(nrow=(length(total_ts) + length(forecast_arima$mean)), ncol=3)
+forecast_df[1:length(total_ts), 1] <- total_ts
+forecast_df[(length(total_ts)+1): nrow(forecast_df), 2] <- as.numeric(forecast_hw$mean)
+forecast_df[(length(total_ts)+1): nrow(forecast_df), 3] <- forecast_arima$mean
+colnames(forecast_df) <- c('Original', 'Forecast HW', 'Forecast ARIMA')
+forecast_df <- ts(forecast_df, start = c(2005, 1), freq=12 )
+plot(forecast_df, plot.type='single', col=c('black', 'blue', 'red'),
+     main = 'Forecast: HW vs ARIMA')
+legend('topright', legend = c('Original', 'HW_forecast', 'ARIMA_forecast'), col = c('black', 'blue', 'red'), lwd = 2, cex = 0.7)
+```
+
+
+# Model Evaluation
 ```{r}
 # Create functions to compute metrics
 mse <- function(y_true, y_pred){
@@ -170,10 +185,62 @@ metrics_df <- format(round(metrics_df, 2), scientific=FALSE)
 row.names(metrics_df) <- metric_name
 print(metrics_df)
 ```
+# Check for normality of residuals
+```{r}
+hw_mul_res <- hw_monthly_mul$fitted - total_ts
+hw_add_res <- hw_monthly_add$fitted - total_ts
+arima_res <- arima_model$fitted - total_ts
+
+# Histograms and QQ-plot
+
+# HW multiplicative
+res <- hw_mul_res
+hist(res, prob=TRUE, main = 'Histogram of HW multiplicative residuals')
+# Add gaussian line to plot
+mu <- mean(res)
+sigma <- sd(res)
+x <- seq(min(res), max(res), length=80)
+y <- dnorm(x, mu, sigma)
+# Add line
+lines(x, y, col='red')
+qqnorm(res, main = 'QQ-plot HW multiplicative model')
+qqline(res)
 
 
+# HW additive
+res <- hw_add_res
+hist(res, prob=TRUE, main = 'Histogram of HW additive residuals')
+# Add gaussian line to plot
+mu <- mean(res)
+sigma <- sd(res)
+x <- seq(min(res), max(res), length=80)
+y <- dnorm(x, mu, sigma)
+# Add line
+lines(x, y, col='red')
+qqnorm(res, main = 'QQ-plot HW additive model')
+qqline(res)
 
-# Model Evaluation
+# ARIMA
+res <- arima_res
+hist(res, prob=TRUE, main = 'Histogram of ARIMA residuals')
+# Add gaussian line to plot
+mu <- mean(res)
+sigma <- sd(res)
+x <- seq(min(res), max(res), length=80)
+y <- dnorm(x, mu, sigma)
+# Add line
+lines(x, y, col='red')
+qqnorm(res, main = 'QQ-plot ARIMA model')
+qqline(res)
+```
+```{r}
+# Jarque-brera normality test
+library(tseries)
+print(paste('p-value for multiplicative HW:', jarque.bera.test(hw_mul_res)$p.value))
+print(paste('p-value for additive HW:', jarque.bera.test(hw_add_res)$p.value))
+print(paste('p-value for ARIMA:', jarque.bera.test(arima_res)$p.value))
+```
+With arima model, residuals on fitted values are not normally distributed (p-value of Jarque-Brera test is less than 5%).
 
 # Time Frequency Analysis
 
