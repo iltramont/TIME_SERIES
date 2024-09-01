@@ -128,7 +128,7 @@ plot(forecast_arima, main = 'Monthly Reported Cases ARIMA')
 points(forecast_arima$fitted, col='blue', type='l', lty=2)
 legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black', 'blue', 'cyan'), lwd = 2, cex = 0.7)
 ```
-# Plot arima and HW predictions in the same graph
+# Plot arima and HW predictions in the same plot
 ```{r}
 fitted_df <- cbind(total_ts, hw_monthly_mul$fitted, arima_model$fitted)
 colnames(fitted_df) <- c('Original', 'HW_fitted', 'ARIMA_fitted')
