@@ -71,7 +71,7 @@ plot(monthly_total, main = 'Monthly Reported Cases', ylab = '', xlab = 'Date')
 boxplot(total_ts ~ cycle(total_ts), xlab = 'Months', ylab = 'Cases',
         main='Monthly Cases Distribution')
 ```
-As expected, the number of reported cases is higher in cold month that are also months in which schools are open and virus can spread easily.
+As expected, the number of reported cases is higher in cold months that are also months in which schools are open and virus can spread easily.
 
 # Decomposition
 
@@ -185,6 +185,8 @@ metrics_df <- format(round(metrics_df, 2), scientific=FALSE)
 row.names(metrics_df) <- metric_name
 print(metrics_df)
 ```
+Looking at the metrics, it seems tha the best model is the Holt-Winters with a multiplicative approach. If we look at the ME and MPE we see how HW-additive performs better, this means that predictions are 'more centered' than the HW-multiplicative one.
+Looking at the ME, HW-multiplicative tends to over estimate the predictions, on the other hand, HW-additive tends to under estimate predictions.
 # Check for normality of residuals
 ```{r}
 hw_mul_res <- hw_monthly_mul$fitted - total_ts
@@ -240,14 +242,66 @@ print(paste('p-value for multiplicative HW:', jarque.bera.test(hw_mul_res)$p.val
 print(paste('p-value for additive HW:', jarque.bera.test(hw_add_res)$p.value))
 print(paste('p-value for ARIMA:', jarque.bera.test(arima_res)$p.value))
 ```
-With arima model, residuals on fitted values are not normally distributed (p-value of Jarque-Brera test is less than 5%).
+With ARIMA model, residuals on fitted values are not normally distributed (p-value of Jarque-Brera test is less than 5%). This is confermed also by looking at the historams and QQ-plots.
 
 # Time Frequency Analysis
+For this analysis we wil use the weekly data.
+```{r}
+# First, I need to check for stationarity
+print(adf.test(total_cases))
+# p-value is low; I can Reject the null. Data is stationary
+# Create periodogram
+library(TSA)
+PGram <- periodogram(total_cases)
+# From the periodogram we see two major peaks and some other minor peaks
+PGramAsDataFrame <- data.frame(freq=PGram$freq, spec=PGram$spec)
+order <- PGramAsDataFrame[order(-PGramAsDataFrame$spec),]
+print(order)
+top2 <- head(order, 2)
+print(top2)
+TimePeriod <- 1/top2[2, 1]
+TimePeriod2 <- 1/top2[1, 1]
+print(TimePeriod)
+print(TimePeriod2)
 
-# ARCH / GARCH
+# Let's try to do it with the monthly data
+PGram <- periodogram(total_ts)
+# From the periodogram we see a major peak
+PGramAsDataFrame <- data.frame(freq=PGram$freq, spec=PGram$spec)
+order <- PGramAsDataFrame[order(-PGramAsDataFrame$spec),]
+print(order)
+top1 <- head(order, 1)
+print(top2)
+TimePeriod <- 1/top2[1, 1]
+print(TimePeriod)
+```
+We see how the time frequencies corresponds to 49 and 54, very similar to 52 wich is the number of weeks in the a year.
+If we repeat the process with monthy data, we obtain a period of 12, as expected.
 
+# GARCH
+```{r}
+garch_model <- garch(total_cases)
+summary(garch_model)
+```
+Looking at GARCH results, we see that the optimal model is a GARCH(1, 1). So, we obtain the following relation:
+$$\sigma_t^2 = a_0 + a_1 \epsilon_{t-1}^2 + b_1 \sigma_{t-1}^2$$
 # VAR
-
+```{r}
+library(vars)
+# Select lag order
+lag_selection <- VARselect(zoo_data, lag.max = 10, type = "const")
+# Looking at HQ criterion, we will use lag=2
+# Fit model
+var_model <- VAR(zoo_data, p=2, type='const')
+# Forecasts
+var_forecast <- predict(var_model, n.ahead = 52*2)  # Two years prediction
+var_forecast <- var_forecast$fcst
+# Plot
+for (var_name in colnames(zoo_data)) {
+  plot(var_forecast[[var_name]][,1], lwd=2)
+}
+```
+Looking at the plots, we see how the VAR model is not suited fo a long time forecast.
 
 
 
