@@ -3,7 +3,8 @@ title: "Hungarian Chickenpox Analysis"
 output: html_notebook
 ---
 
-In this notebook there will be an analysis of Hungarian weekly chickenpox cases. First, let's have a look at the data.
+In this notebook there will be an analysis of Hungarian weekly chickenpox cases.
+First, let's have a look at the data.
 
 # EDA
 
@@ -16,11 +17,12 @@ print(paste('data is a', class(data)))
 print(data)
 ```
 Is possible to see how the dataset contains 522 rows (weeks) and 21 columns (1 for the date and 20 cities).
-Now we must convert the first column in the proper format and transform the dataset in a timeseries.
+Now we must convert the first column in the proper format and transform the dataset in a multivariate time series.
 ```{r}
 data$Date <- as.Date(data$Date, format='%d/%m/%Y')
 print(str(data))
 ```
+Now, we need to convert the dataset in to a timeseries. We will use the library "zoo".
 ```{r}
 library(zoo)
 zoo_data <- zoo(data[2:ncol(data)], order.by=data$Date)
@@ -28,7 +30,8 @@ zoo_data <- zoo(data[2:ncol(data)], order.by=data$Date)
 plot.zoo(zoo_data, plot.type='multiple', nc=2, xlab = 'Date',
          main='Hungarian Chickenpox Weekly Cases', yax.flip = TRUE)
 ```
-A seasonal behavior is clear in every city. It seems also that the peaks coincide.Let's check. For a better comparison, let's scale the data in order to eliminate differences in population between cities.
+A seasonal behavior is clear in every city (county). It seems also that the peaks coincide. Let's check. 
+For a better comparison, let's scale the data in order to eliminate differences in population between cities.
 
 ```{r}
 # To have 20 different colors
@@ -60,16 +63,16 @@ total_cases <- zoo(total_cases, order.by = data$Date)
 plot.zoo(total_cases, main = 'Hungarian Chickenpox Cases (Reported)',
          ylab = 'Count', xlab = 'Date')
 ```
-It is clear a seasonal pattern (more cases in cold months?) and is also possible to notice that peaks' height is decreasing. To reduce oscillations, a monthly aggregation is now performed. There will be used a "sum" aggregation function as datasets refers to reported cases and not active cases.
+It is clear a seasonal pattern (more cases in cold months?) and is also possible to notice that peaks' height is decreasing. To reduce oscillations, a monthly aggregation is now performed. There will be used a "sum" aggregation function as dataset refers to reported cases and not active cases.
 ```{r}
 monthly_data <- aggregate(zoo_data, as.yearmon, sum)
 monthly_total <- aggregate(total_cases, as.yearmon, sum)
 total_ts <- ts(monthly_total, start = c(2005, 1), freq=12)
 print(total_ts)
-plot(monthly_data, yax.flip = TRUE, main = 'Monthly Reported Cases', xlab = 'Date')
-plot(monthly_total, main = 'Monthly Reported Cases', ylab = '', xlab = 'Date')
+plot(monthly_data, yax.flip = TRUE, main = 'Monthly Reported Cases by County', xlab = 'Date')
+plot(monthly_total, main = 'Monthly Reported Cases (National Aggregate)', ylab = '', xlab = 'Date')
 boxplot(total_ts ~ cycle(total_ts), xlab = 'Months', ylab = 'Cases',
-        main='Monthly Cases Distribution')
+        main='Monthly Cases Distribution (National Aggregate)')
 ```
 As expected, the number of reported cases is higher in cold months that are also months in which schools are open and virus can spread easily.
 
@@ -94,6 +97,8 @@ plot(acf(c(cases_decompose$random), na.action = na.pass, plot = FALSE),
 With the multiplicative approach, the volatility of the random component is more constant and the autocorrelation in the random component is less significant (but we still have a significant autocorrelation with lag = 4).
 
 # Forecasting
+In this notebook we wont use the train-test split (we will use it in the Python notebook). We will compare the models using the fitted data on the training data.
+We will forecast values to years forward (24 months, 104 weeks).
 ## Holt-Winters Forecast
 ```{r}
 library(forecast)
@@ -124,7 +129,7 @@ print(paste('Root mean squared error on fitted values: ', sqrt(ssr_arima / lengt
 
 print(arima_model)
 forecast_arima <- forecast(arima_model, h=24)
-plot(forecast_arima, main = 'Monthly Reported Cases ARIMA')
+plot(forecast_arima, main = 'Monthly Reported Cases ARIMA', ylab = 'Cases', xlab = 'Date')
 points(forecast_arima$fitted, col='blue', type='l', lty=2)
 legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black', 'blue', 'cyan'), lwd = 2, cex = 0.7)
 ```
@@ -132,7 +137,8 @@ legend('topright', legend = c('observed', 'fitted', 'forecast'), col = c('black'
 ```{r}
 fitted_df <- cbind(total_ts, hw_monthly_mul$fitted, arima_model$fitted)
 colnames(fitted_df) <- c('Original', 'HW_fitted', 'ARIMA_fitted')
-plot(fitted_df, plot.type = 'single', col = c('black', 'blue', 'red'))
+plot(fitted_df, plot.type = 'single', col = c('black', 'blue', 'red'),
+     main='Fitted Monthly Cases - HW and ARIMA', ylab = 'Cases', xlab = 'Date')
 legend('topright', legend = c('Original', 'HW_fitted', 'ARIMA_fitted'), col = c('black', 'blue', 'red'), lwd = 2, cex = 0.7)
 ```
 # Plot forecasts in the same plot
@@ -144,12 +150,13 @@ forecast_df[(length(total_ts)+1): nrow(forecast_df), 3] <- forecast_arima$mean
 colnames(forecast_df) <- c('Original', 'Forecast HW', 'Forecast ARIMA')
 forecast_df <- ts(forecast_df, start = c(2005, 1), freq=12 )
 plot(forecast_df, plot.type='single', col=c('black', 'blue', 'red'),
-     main = 'Forecast: HW vs ARIMA')
+     main = 'Forecast: HW vs ARIMA', ylab = 'Cases', xlab = 'Date')
 legend('topright', legend = c('Original', 'HW_forecast', 'ARIMA_forecast'), col = c('black', 'blue', 'red'), lwd = 2, cex = 0.7)
 ```
 
 
 # Model Evaluation
+First, we create some functions to evaluate models.
 ```{r}
 # Create functions to compute metrics
 mse <- function(y_true, y_pred){
@@ -185,7 +192,7 @@ metrics_df <- format(round(metrics_df, 2), scientific=FALSE)
 row.names(metrics_df) <- metric_name
 print(metrics_df)
 ```
-Looking at the metrics, it seems tha the best model is the Holt-Winters with a multiplicative approach. If we look at the ME and MPE we see how HW-additive performs better, this means that predictions are 'more centered' than the HW-multiplicative one.
+Looking at the metrics, it seems that the best model is the Holt-Winters with a multiplicative approach. This is also confirmed by looking at the plots If we look at the ME and MPE we see how HW-additive performs better, this means that predictions are 'more centered' than the HW-multiplicative one.
 Looking at the ME, HW-multiplicative tends to over estimate the predictions, on the other hand, HW-additive tends to under estimate predictions.
 # Check for normality of residuals
 ```{r}
@@ -263,7 +270,10 @@ TimePeriod <- 1/top2[2, 1]
 TimePeriod2 <- 1/top2[1, 1]
 print(TimePeriod)
 print(TimePeriod2)
-
+```
+We see how the time frequencies corresponds to 49 and 54, very similar to 52 wich is the number of weeks in the a year.
+Let's try to do it with the monthly data
+```{r}
 # Let's try to do it with the monthly data
 PGram <- periodogram(total_ts)
 # From the periodogram we see a major peak
@@ -275,8 +285,7 @@ print(top2)
 TimePeriod <- 1/top2[1, 1]
 print(TimePeriod)
 ```
-We see how the time frequencies corresponds to 49 and 54, very similar to 52 wich is the number of weeks in the a year.
-If we repeat the process with monthy data, we obtain a period of 12, as expected.
+If we repeat the process with monthly data, we obtain a period of 12, as expected.
 
 # GARCH
 ```{r}
@@ -298,34 +307,20 @@ var_forecast <- predict(var_model, n.ahead = 52*2)  # Two years prediction
 var_forecast <- var_forecast$fcst
 # Plot
 for (var_name in colnames(zoo_data)) {
-  plot(var_forecast[[var_name]][,1], lwd=2)
+  plot(var_forecast[[var_name]][,1], lwd=2, xlab='Forecast Weeks', ylab='Forecasted Cases', main=var_name)
 }
 ```
 Looking at the plots, we see how the VAR model is not suited fo a long time forecast.
+The best forecast model seem to be the Holt-Winter with multipicative decomposition.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+If we try to use a greater order for the VAR model, we obtain a more sinusoidal behavior. For example, let's see the plots for p=10:
+```{r}
+var_model <- VAR(zoo_data, p=10, type='const')
+# Forecasts
+var_forecast <- predict(var_model, n.ahead = 52*2)  # Two years prediction
+var_forecast <- var_forecast$fcst
+# Plot
+for (var_name in colnames(zoo_data)) {
+  plot(var_forecast[[var_name]][,1], lwd=2, xlab='Forecast Weeks', ylab='Forecasted Cases', main=var_name)
+}
+```
